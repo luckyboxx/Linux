@@ -1,9 +1,9 @@
 /*
- * System Programming Homework4
+ * System Programming Homework5
  * mysh.c
- * By Kwon Hyeok Jae
- * StudentID : 32111830
- * User ID : sys111830
+ * By Chang Yeon Jo
+ * StudentID : 32144548
+ * User ID : sys32144548
 */
 
 #include <stdio.h>
