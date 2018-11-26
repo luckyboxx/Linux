@@ -1,159 +1,130 @@
-/*
- * System Programming Homework5
- * mysh.c
- * By Chang Yeon Jo
- * StudentID : 32144548
- * User ID : sys32144548
-*/
-
+/* System Programming Homework5 -> mysh.c / By Cho Chang Yeon / StudentID : 32144548 / User ID : sys32144548 */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 void help()
 {
-	printf("Simple Help\n");
-	printf("--------------------------------------------------\n");
-	printf("종료를 원하시면 exit 입력\n");
-	printf("Directory 이동을 원하시면 cd 명령어 사용\n");
-	printf("Background Processing을 원하시면 마지막에 '&' 입력\n");
-	printf("Redirection을 원하시면 '>' or '>>'  or '<' 입력\n");
-	printf("--------------------------------------------------\n");
+	printf("/***************Simple Shell***************/\n");
+	printf("You can use it just as the conventional shell\n\n");
+	printf("Some examples of the built-in commands\n");
+	printf("exit\t: exit this shell\n");
+	printf("help\t: show this help\n");
+	printf("&\t: background processing\n");
+	printf(">\t: redirection\n");
+	printf("/*****************************************/\n");
 }
 
-void changeDirectory(char* tokens[])
-{
-	//입력된 디렉토리 경로가 없을경우 환경변수 home을 가져와서 home으로 이동
-	if(!tokens[1])
-		chdir(getenv("HOME"));
-	else if(tokens[1])
-		chdir(tokens[1]);
-	else{
-		printf("잘못된 입력입니다\n");
-		printf("사용법 : cd [Directory Name]\n");
-	}
-}
-
-int tokenize(char* buf, char* delims, char* tokens[], int maxTokens)
-{
+int tokenize(char* buf, char* delims, char* tokens[], int maxTokens){
 	int token_count = 0;
 	char* token;
 
 	token = strtok(buf, delims);
-	while(token!=NULL && token_count < maxTokens)
+	while(token != NULL && token_count < maxTokens)
 	{
 		tokens[token_count] = token;
 		token_count++;	
 		token = strtok(NULL, delims);
-	} //tokens에 null값이 들어간 경우 빠져 나옴(Parsing이 끝남)
+	}
+	// parshing
 	tokens[token_count] = NULL;
-
 	return token_count;
 }
 
-bool run(char* line)
-{
-	bool bg = false;// & 연산자 관련
-	int search=0; int re=0; int reDouble=0; int reInput=0;
-	//search : 문자열 찾기, re : >, reDouble : >>, reInput : <
-	int fd; 
-	int status;
+bool run(char* line){
+	int i;
+	int fd;
+	int re = 0;
+	int bg = 0;
+	int re_check = 0;
+	int bg_check = 0;
 	int token_count;
 	pid_t child;
-	char delims[] = " 	\n"; //토큰을 " "(공백)과 tab, '\n' 으로 구별
-	char* tokens[256];
-
+	char delims[] = " \r\t\n";
+	char* tokens[128];
 	
 	token_count = tokenize(line, delims, tokens, sizeof(tokens)/sizeof(char*));
 
-	//내장 기능  exit, help, cd  실행
-	if(token_count == 0) //아무것도 입력이 없을 경우 
+	if(token_count == 0) //아무런 입력이 없을 경우 
 		return true;
-
-	if(strcmp(tokens[0], "exit")==0) //exit(종료) 입력시
+	
+	// tokens[0]에 위치한 문자열과 exit를 서로 비교하여 두 문자열이 같다면 false를 반환
+	if(strcmp(tokens[0], "exit") == 0) // 터미널에 exit를 입력하면 shell을 종료한다.
 		return false;
+	
 
-	if(strcmp(tokens[0], "help")==0){ //help(도움말) 입력시
+	// tokens[0]에 위치한 문자열과 help를 서로 비교하여 두 문자열이 같다면 help()함수를 호출  
+	if(strcmp(tokens[0], "help") == 0){ // 터미널에 help를 입력하면 화면에 도움말이 출력된다.
 		help();
 		return true;
 	}
-	if(strcmp(tokens[0], "cd")==0){ //cd(디렉토리 변경) 입력시
-		changeDirectory(tokens);
-		return true;
-	}
-
+	// handling redirection, pipe and background processing
 	//Background Processing과 Redirection을 해야 하는지 검사 
-	for(search=0;search<token_count;search++)
+	
+
+	for(i = 0; i < token_count; i++)
 	{
-		if(strcmp(tokens[search], "&")==0){
-			bg = true;
-			tokens[search]=NULL;
+		if(strcmp(tokens[i],">") == 0)
+		{
+			re = i;
+			re_check = 1;
 			break;
 		}
-		if(strcmp(tokens[search], ">")==0){
-			re = search;
-			tokens[search]=NULL;
+	
+		if(strcmp(tokens[i],"&") == 0)
+		{
+			bg = i;
+			bg_check = 1;
 			break;
 		}
-		if(strcmp(tokens[search], ">>")==0){
-			reDouble = search;
-			tokens[search]=NULL;
-			break;
-		}
-		if(strcmp(tokens[search], "<")==0){
-			reInput = search;
-			tokens[search]=NULL;
-			break;
-		}
-	}		
+
+	}	
 
 	child = fork();
-	if(child<0){ //fork error
+	if(child < 0){ //fork error
 		printf("fork error\n");
-		_exit(1);
+		return false;
 	}
-	else if(child==0){ //Child Task
-		if(re){// > 입력시 출력 재지정
-			fd = open(tokens[re+1], O_WRONLY|O_TRUNC|O_CREAT, 0664);
+	else if(child == 0){ //Child Task
+		if(bg_check) {
+			tokens[bg] = '\0';
+		}
+	
+		if(re_check == 1){// > 입력시 출력 재지정
+			fd = open(tokens[re + 1], O_WRONLY|O_TRUNC|O_CREAT, 0664);
 			close(STDOUT_FILENO);
 			dup2(fd, STDOUT_FILENO);
-		}
-		if(reDouble){// >> 입력시출력 재지정(기존에 것에  이어서 출력)
-			fd = open(tokens[reDouble+1], O_WRONLY|O_APPEND|O_CREAT, 0664);
-			close(STDOUT_FILENO);
-			dup2(fd, STDOUT_FILENO);
-		}
-		if(reInput){// < 입력시 입력 재지정
-			fd = open(tokens[reInput+1], O_RDONLY);
-			close(STDIN_FILENO);
-			dup2(fd, STDIN_FILENO);
+			tokens[re] = '\0';
 		}
 		execvp(tokens[0], tokens);
-		printf("execvp Error\n"); //이 문장 출력시 execvp가 제대로 안됨
-		_exit(0);
+		printf("execvp error\n"); //이 문장 출력시 execvp가 제대로 안됨
+		
+		return false;
 	}
-	else{ //Parent Task
-		if(!bg) //bg==1인 경우 Background로 처리하기 위해 wait를 하지 않음
-			waitpid(child, &status, 0);
+	else if(bg_check == false) {
+		wait(NULL);
 	}
-
+	
 	return true;
-}
+}	
 
 int main()
 {
 	char line[1024];
-	printf("도움말을 원하시면 'help'를 입력하세요.\n");
 	while(1){
 		printf("%s $ ", get_current_dir_name());
-		fgets(line, sizeof(line)-1, stdin);
-		if(run(line) == false) break;
+		fgets(line, sizeof(line) - 1, stdin);
+		if(run(line) == false)
+			break;
 	}
 	
 	return 0;
-}	
+}
