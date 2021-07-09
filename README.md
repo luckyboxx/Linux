@@ -1,3 +1,5 @@
-# myshell program
+# 시스템 프로그래밍
 
-## System Programming 5th Assignment (Used Linux shell)
+### 2018년 2학년 2학기
+
+* 과제5 - 리눅스 myshell 만들기
