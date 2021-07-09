@@ -11,8 +11,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 
-void help()
-{
+void help() {
 	printf("/***************Simple Shell***************/\n");
 	printf("You can use it just as the conventional shell\n\n");
 	printf("Some examples of the built-in commands\n");
@@ -23,13 +22,13 @@ void help()
 	printf("/*****************************************/\n");
 }
 
-int tokenize(char* buf, char* delims, char* tokens[], int maxTokens){
+int tokenize(char* buf, char* delims, char* tokens[], int maxTokens) {
 	int token_count = 0;
 	char* token;
 
 	token = strtok(buf, delims);
-	while(token != NULL && token_count < maxTokens)
-	{
+
+	while(token != NULL && token_count < maxTokens) {
 		tokens[token_count] = token;
 		token_count++;	
 		token = strtok(NULL, delims);
@@ -39,7 +38,7 @@ int tokenize(char* buf, char* delims, char* tokens[], int maxTokens){
 	return token_count;
 }
 
-bool run(char* line){
+bool run(char* line) {
 	int i;
 	int fd;
 	int re = 0;
@@ -70,17 +69,14 @@ bool run(char* line){
 	//Background Processing과 Redirection을 해야 하는지 검사 
 	
 
-	for(i = 0; i < token_count; i++)
-	{
-		if(strcmp(tokens[i],">") == 0)
-		{
+	for(i = 0; i < token_count; i++) {
+		if(strcmp(tokens[i],">") == 0) {
 			re = i;
 			re_check = 1;
 			break;
 		}
 	
-		if(strcmp(tokens[i],"&") == 0)
-		{
+		if(strcmp(tokens[i],"&") == 0) {
 			bg = i;
 			bg_check = 1;
 			break;
@@ -89,16 +85,16 @@ bool run(char* line){
 	}	
 
 	child = fork();
-	if(child < 0){ //fork error
+	if(child < 0) { //fork error
 		printf("fork error\n");
 		return false;
 	}
-	else if(child == 0){ //Child Task
+	else if(child == 0) { //Child Task
 		if(bg_check) {
 			tokens[bg] = '\0';
 		}
 	
-		if(re_check == 1){// > 입력시 출력 재지정
+		if(re_check == 1) {// > 입력시 출력 재지정
 			fd = open(tokens[re + 1], O_WRONLY|O_TRUNC|O_CREAT, 0664);
 			close(STDOUT_FILENO);
 			dup2(fd, STDOUT_FILENO);
@@ -116,10 +112,10 @@ bool run(char* line){
 	return true;
 }	
 
-int main()
-{
+int main() {
 	char line[1024];
-	while(1){
+	
+	while(1) {
 		printf("%s $ ", get_current_dir_name());
 		fgets(line, sizeof(line) - 1, stdin);
 		if(run(line) == false)
